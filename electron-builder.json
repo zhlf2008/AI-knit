@@ -1,0 +1,35 @@
+{
+  "appId": "com.aisweater.designer",
+  "productName": "AI毛衣设计师",
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "dist/**/*",
+    "electron/**/*",
+    "package.json"
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      },
+      {
+        "target": "portable",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "public/icon.ico"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "AI毛衣设计师"
+  },
+  "portable": {
+    "artifactName": "AI毛衣设计师-便携版.exe"
+  }
+}
