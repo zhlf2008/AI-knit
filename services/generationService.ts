@@ -21,8 +21,13 @@ export const verifyConnection = async (provider: ApiProvider, key: string, endpo
   try {
     switch (provider) {
       case 'zimage': {
-        // Use Vite proxy instead of direct API call
-        const url = '/api/proxy/v1/images/generations';
+        // Detect if running in production (not on Vite dev server)
+        const isProduction = !import.meta.env.DEV;
+
+        // Use direct API call in production, Vite proxy in development
+        const url = isProduction
+          ? `${DEFAULT_API_ENDPOINT}`
+          : '/api/proxy/v1/images/generations';
 
         const res = await fetch(url, {
           method: "POST",
@@ -47,7 +52,7 @@ export const verifyConnection = async (provider: ApiProvider, key: string, endpo
   } catch (e: any) {
     console.error(`Verification failed for ${provider}:`, e);
     if (e.message?.includes("Failed to fetch")) {
-      return { success: false, message: "网络错误 (CORS): 请在设置中切换不同的代理线路" };
+      return { success: false, message: "网络错误 (CORS): 请检查网络连接" };
     }
     return { success: false, message: e.message || "未知错误" };
   }
@@ -82,8 +87,15 @@ const generateWithZImage = async (
   // Remove "AI设计：" prefix if present
   const cleanedPrompt = truncatedPrompt.replace(/^AI设计[:：]\s*/, '').trim();
 
-  // Use Vite proxy for all requests
-  const url = '/api/proxy/v1/images/generations';
+  // Detect if running in production (not on Vite dev server)
+  const isProduction = !import.meta.env.DEV;
+
+  // Use direct API call in production, Vite proxy in development
+  const apiBaseUrl = isProduction
+    ? 'https://api-inference.modelscope.cn'
+    : '/api/proxy';
+
+  const url = `${apiBaseUrl}/v1/images/generations`;
 
   try {
     // Step 1: Submit async task
@@ -121,8 +133,10 @@ const generateWithZImage = async (
     const taskId = data.task_id;
     if (!taskId) throw new Error("Failed to start Z-Image task: No task_id returned.");
 
-    // Use proxy for task query if configured
-    const taskBaseUrl = `/api/proxy/v1/tasks/${taskId}`;
+    // Use direct API call for task query in production
+    const taskBaseUrl = isProduction
+      ? `https://api-inference.modelscope.cn/v1/tasks/${taskId}`
+      : `/api/proxy/v1/tasks/${taskId}`;
 
     let attempts = 0;
     while (attempts < 120) {
@@ -171,7 +185,7 @@ const generateWithZImage = async (
       throw new Error('Generation cancelled by user');
     }
     if (e.message?.includes("403") || e.message?.includes("Failed to fetch")) {
-      throw new Error("连接被代理拒绝 (403/CORS)。\nZ-Image 的 ModelScope API 可能限制了当前代理 IP。\n建议：\n1. 尝试使用 'Cors.sh' 代理。\n2. 如果您有 Cloudflare Worker，请使用自定义代理。\n3. 切换到不同的代理线路尝试。");
+      throw new Error("连接被拒绝 (CORS/网络错误)。\n请检查网络连接或稍后重试。");
     }
     throw e;
   }
