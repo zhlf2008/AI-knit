@@ -1,0 +1,14 @@
+name = "ai-knit-proxy"
+main = "_worker.js"
+compatibility_date = "2024-01-01"
+
+# Routes to proxy ModelScope API
+# This will make the worker available at /api/* paths
+routes = [
+  { pattern = "https://your-domain.pages.dev/api/*", zone_name = "your-domain.pages.dev" }
+]
+
+# Or use custom domain if you have one
+# routes = [
+#   { pattern = "https://api.your-domain.com/*", zone_name = "api.your-domain.com" }
+# ]

@@ -24,9 +24,10 @@ export const verifyConnection = async (provider: ApiProvider, key: string, endpo
         // Detect if running in production (not on Vite dev server)
         const isProduction = !import.meta.env.DEV;
 
-        // Use direct API call in production, Vite proxy in development
+        // Production: Use Cloudflare Pages Functions proxy
+        // Development: Use Vite proxy
         const url = isProduction
-          ? `${DEFAULT_API_ENDPOINT}`
+          ? '/api/v1/images/generations'
           : '/api/proxy/v1/images/generations';
 
         const res = await fetch(url, {
@@ -52,7 +53,7 @@ export const verifyConnection = async (provider: ApiProvider, key: string, endpo
   } catch (e: any) {
     console.error(`Verification failed for ${provider}:`, e);
     if (e.message?.includes("Failed to fetch")) {
-      return { success: false, message: "网络错误 (CORS): 请检查网络连接" };
+      return { success: false, message: "网络错误: 请检查 Cloudflare Pages Functions 是否正确部署" };
     }
     return { success: false, message: e.message || "未知错误" };
   }
@@ -90,9 +91,10 @@ const generateWithZImage = async (
   // Detect if running in production (not on Vite dev server)
   const isProduction = !import.meta.env.DEV;
 
-  // Use direct API call in production, Vite proxy in development
+  // Production: Use Cloudflare Pages Functions proxy
+  // Development: Use Vite proxy
   const apiBaseUrl = isProduction
-    ? 'https://api-inference.modelscope.cn'
+    ? '/api'
     : '/api/proxy';
 
   const url = `${apiBaseUrl}/v1/images/generations`;
@@ -133,9 +135,10 @@ const generateWithZImage = async (
     const taskId = data.task_id;
     if (!taskId) throw new Error("Failed to start Z-Image task: No task_id returned.");
 
-    // Use direct API call for task query in production
+    // Production: Use Cloudflare Pages Functions proxy
+    // Development: Use Vite proxy
     const taskBaseUrl = isProduction
-      ? `https://api-inference.modelscope.cn/v1/tasks/${taskId}`
+      ? `/api/v1/tasks/${taskId}`
       : `/api/proxy/v1/tasks/${taskId}`;
 
     let attempts = 0;
@@ -185,7 +188,7 @@ const generateWithZImage = async (
       throw new Error('Generation cancelled by user');
     }
     if (e.message?.includes("403") || e.message?.includes("Failed to fetch")) {
-      throw new Error("连接被拒绝 (CORS/网络错误)。\n请检查网络连接或稍后重试。");
+      throw new Error("连接被拒绝 (CORS/网络错误)。\n请确保已部署 Cloudflare Pages Functions。\n详见: https://developers.cloudflare.com/pages/functions/");
     }
     throw e;
   }
