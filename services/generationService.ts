@@ -36,7 +36,18 @@ export const verifyConnection = async (provider: ApiProvider, key: string, endpo
             "Authorization": `Bearer ${key}`,
             "Content-Type": "application/json"
           },
-          body: JSON.stringify({ model: DEFAULT_MODEL_ID, prompt: "test", n: 1, size: "1024x1024" })
+          body: JSON.stringify({ 
+            model: DEFAULT_MODEL_ID, 
+            prompt: "test", 
+            n: 1, 
+            size: "1024x1024",
+            seed: 42,
+            steps: 8,
+            time_shift: 3.0,
+            guidance_scale: 7.5,
+            sampler: "euler_a",
+            scheduler: "karras"
+          })
         });
 
         if (res.status === 401 || res.status === 403) {
@@ -67,7 +78,7 @@ const generateWithZImage = async (
   seed: number,
   config: Config,
   signal?: AbortSignal
-): Promise<string> => {
+): Promise<{ imageUrl: string; seed: number | null }> => {
   const apiKey = getApiKey(config, 'zimage');
   if (!apiKey) throw new Error("Z-Image API Token is missing. Please configure it in Settings.");
 
@@ -101,6 +112,8 @@ const generateWithZImage = async (
 
   try {
     // Step 1: Submit async task
+    // Note: ModelScope API uses the seed value directly
+    // Unlike Gradio, it doesn't have a separate random_seed flag
     const response = await fetch(url, {
       method: "POST",
       signal: signal,
@@ -113,7 +126,13 @@ const generateWithZImage = async (
         model: DEFAULT_MODEL_ID,
         prompt: cleanedPrompt,
         n: 1,
-        size: resolution
+        size: resolution,
+        seed: seed,  // Use the seed value from UI (could be fixed or random)
+        steps: config.steps || 8,
+        time_shift: config.timeShift || 3.0,
+        guidance_scale: config.guidanceScale || 7.5,  // Add guidance scale parameter
+        sampler: config.sampler || "euler_a",  // Add sampler parameter
+        scheduler: config.scheduler || "karras"  // Add scheduler parameter
       })
     });
 
@@ -170,7 +189,10 @@ const generateWithZImage = async (
 
       if (status === 'SUCCEED') {
         if (taskData.output_images && taskData.output_images.length > 0) {
-          return taskData.output_images[0];
+          return {
+            imageUrl: taskData.output_images[0],
+            seed: taskData.seed || seed || null // Use API returned seed if available
+          };
         }
         throw new Error("Task succeeded but no images returned.");
       } else if (status === 'FAILED') {
@@ -200,6 +222,6 @@ export const generateImage = async (
     seed: number,
     config: Config,
     signal?: AbortSignal
-): Promise<string> => {
+): Promise<{ imageUrl: string; seed: number | null }> => {
   return await generateWithZImage(prompt, resolution, seed, config, signal);
 };

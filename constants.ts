@@ -17,6 +17,9 @@ export const DEFAULT_CONFIG: Config = {
   corsProxy: '', // 使用 Vite 代理，不需要外部 CORS 代理
   steps: 8,
   timeShift: 3.0,
+  guidanceScale: 7.5,
+  sampler: "euler_a",
+  scheduler: "karras",
   categories: [
     {
       id: 'color',

@@ -79,10 +79,10 @@ const App: React.FC = () => {
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showFullScreenImage, setShowFullScreenImage] = useState<string | null>(null);
-  
+
   // Navigation State
   const [currentView, setCurrentView] = useState<'design' | 'history'>('design');
-  
+
   const [generationState, setGenerationState] = useState<GenerationState>({
     isGenerating: false,
     progress: 0,
@@ -94,7 +94,15 @@ const App: React.FC = () => {
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // --- Effects ---
-  
+
+  // Generate random seed when random mode is enabled
+  useEffect(() => {
+    if (isRandomSeed) {
+      const randomSeed = Math.floor(Math.random() * 1000000);
+      setSeedInput(randomSeed.toString());
+    }
+  }, [isRandomSeed]);
+
   // Persist config
   useEffect(() => {
     localStorage.setItem('app_config', JSON.stringify(config));
@@ -176,8 +184,14 @@ const App: React.FC = () => {
     setErrorMsg(null);
     setCurrentView('design'); // Ensure we are on design view
 
-    const usedSeed = isRandomSeed ? Math.floor(Math.random() * 1000000) : parseInt(seedInput) || 42;
-    if (isRandomSeed) setSeedInput(usedSeed.toString());
+    // Generate seed: if random mode, create new random seed; otherwise use input value
+    let usedSeed;
+    if (isRandomSeed) {
+      usedSeed = Math.floor(Math.random() * 1000000);
+      setSeedInput(usedSeed.toString()); // Update UI immediately
+    } else {
+      usedSeed = parseInt(seedInput) || 42;
+    }
 
     // Progress animation
     const interval = setInterval(() => {
@@ -194,25 +208,38 @@ const App: React.FC = () => {
         hasKey: !!config.keys[config.apiProvider],
         promptLength: prompt.length,
         resolution,
-        seed: usedSeed
+        seed: usedSeed,
+        isRandomSeed,
+        steps: config.steps,
+        timeShift: config.timeShift
       });
 
-      const imageUrl = await generateImage(prompt, resolution, usedSeed, config, controller.signal);
+      const result = await generateImage(prompt, resolution, usedSeed, config, controller.signal);
 
-      console.log('Generation completed, imageUrl:', imageUrl);
+      console.log('Generation completed:', result);
+
+      // Use the actual seed returned from API, fallback to usedSeed if not available
+      const actualSeed = result.seed || usedSeed;
 
       setGenerationState({
         isGenerating: false,
         progress: 100,
-        imageUrl: imageUrl,
-        seed: usedSeed
+        imageUrl: result.imageUrl,
+        seed: actualSeed
       });
+
+      // Update seedInput to show the actual seed that was used
+      // This follows aardio pattern of updating UI with API-returned seed
+      // Only update if we're not in random mode (in random mode we already updated above)
+      if (!isRandomSeed) {
+        setSeedInput(actualSeed.toString());
+      }
 
       // Add to History
       const newItem: HistoryItem = {
         id: Date.now().toString(),
         timestamp: Date.now(),
-        imageUrl: imageUrl,
+        imageUrl: result.imageUrl,
         prompt: prompt,
         seed: usedSeed,
         resolution: resolution,

@@ -18,6 +18,9 @@ export interface Config {
   corsProxy: string; // Legacy global proxy (for backward compatibility)
   steps: number;
   timeShift: number;
+  guidanceScale?: number;
+  sampler?: string;
+  scheduler?: string;
 }
 
 export interface GenerationState {
