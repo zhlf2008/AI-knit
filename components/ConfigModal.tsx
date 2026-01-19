@@ -142,10 +142,12 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ isOpen, onClose, config, onSa
       label: newCatName,
       items: []
     };
-    setLocalConfig(prev => ({
-      ...prev,
-      categories: [...prev.categories, newCat]
-    }));
+    const newConfig = {
+      ...localConfig,
+      categories: [...localConfig.categories, newCat]
+    };
+    setLocalConfig(newConfig);
+    handleAutoSave(newConfig);
     setNewCatName('');
     setSelectedCatIndex(localConfig.categories.length); // Select the new one
   };
@@ -153,7 +155,9 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ isOpen, onClose, config, onSa
   const handleDeleteCategory = (index: number) => {
     const newCats = [...localConfig.categories];
     newCats.splice(index, 1);
-    setLocalConfig(prev => ({ ...prev, categories: newCats }));
+    const newConfig = { ...localConfig, categories: newCats };
+    setLocalConfig(newConfig);
+    handleAutoSave(newConfig);
     if (selectedCatIndex >= newCats.length) {
       setSelectedCatIndex(Math.max(0, newCats.length - 1));
     }
@@ -163,14 +167,18 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ isOpen, onClose, config, onSa
     if (!newItemName.trim() || localConfig.categories.length === 0) return;
     const newCats = [...localConfig.categories];
     newCats[selectedCatIndex].items.push(newItemName);
-    setLocalConfig(prev => ({ ...prev, categories: newCats }));
+    const newConfig = { ...localConfig, categories: newCats };
+    setLocalConfig(newConfig);
+    handleAutoSave(newConfig);
     setNewItemName('');
   };
 
   const handleDeleteItem = (itemIndex: number) => {
     const newCats = [...localConfig.categories];
     newCats[selectedCatIndex].items.splice(itemIndex, 1);
-    setLocalConfig(prev => ({ ...prev, categories: newCats }));
+    const newConfig = { ...localConfig, categories: newCats };
+    setLocalConfig(newConfig);
+    handleAutoSave(newConfig);
   };
 
   const handleSave = () => {
@@ -205,7 +213,9 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ isOpen, onClose, config, onSa
     if (selectedCatIndex === draggedCatIndex) setSelectedCatIndex(dropIndex);
     else if (selectedCatIndex > draggedCatIndex && selectedCatIndex <= dropIndex) setSelectedCatIndex(selectedCatIndex - 1);
     else if (selectedCatIndex < draggedCatIndex && selectedCatIndex >= dropIndex) setSelectedCatIndex(selectedCatIndex + 1);
-    setLocalConfig(prev => ({ ...prev, categories: newCats }));
+    const newConfig = { ...localConfig, categories: newCats };
+    setLocalConfig(newConfig);
+    handleAutoSave(newConfig);
     setDraggedCatIndex(null);
   };
 
@@ -218,7 +228,9 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ isOpen, onClose, config, onSa
     const [movedItem] = items.splice(draggedItemIndex, 1);
     items.splice(dropIndex, 0, movedItem);
     newCats[selectedCatIndex].items = items;
-    setLocalConfig(prev => ({ ...prev, categories: newCats }));
+    const newConfig = { ...localConfig, categories: newCats };
+    setLocalConfig(newConfig);
+    handleAutoSave(newConfig);
     setDraggedItemIndex(null);
   };
 
