@@ -4,7 +4,7 @@ export interface Category {
   items: string[];
 }
 
-export type ApiProvider = 'zimage';
+export type ApiProvider = 'zimage' | 'openai';
 
 export interface Config {
   categories: Category[];

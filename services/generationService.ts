@@ -15,7 +15,7 @@ const getApiKey = (config: Config, providerOverride?: ApiProvider) => {
 
 // --- Verification Logic ---
 
-export const verifyConnection = async (provider: ApiProvider, key: string, endpoint?: string, proxy?: string): Promise<{ success: boolean; message?: string }> => {
+export const verifyConnection = async (provider: ApiProvider, key: string, endpoint?: string, model?: string, proxy?: string): Promise<{ success: boolean; message?: string }> => {
   if (!key) return { success: false, message: "请输入 API 密钥" };
 
   try {
@@ -58,13 +58,61 @@ export const verifyConnection = async (provider: ApiProvider, key: string, endpo
         }
         return { success: false, message: `验证失败 (${res.status}): API 响应异常` };
       }
+      case 'openai': {
+        if (!endpoint) {
+          return { success: false, message: "请输入 API 接入地址" };
+        }
+        // 使用配置的模型名称，如果未提供则使用通用模型
+        const testModel = model || "gpt-3.5-turbo";
+        // 测试 OpenAI 兼容 API 连接
+        const testEndpoint = endpoint.endsWith('/chat/completions') ? endpoint : `${endpoint.replace(/\/$/, '')}/chat/completions`;
+        const res = await fetch(testEndpoint, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${key}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: testModel,
+            messages: [{ role: "user", content: "Hello" }],
+            max_tokens: 5
+          })
+        });
+
+        if (res.status === 401 || res.status === 403) {
+          return { success: false, message: "API 密钥无效或权限不足" };
+        }
+        if (res.ok) {
+          return { success: true };
+        }
+        // 尝试解析错误响应体
+        let errorDetail = '';
+        try {
+          const errorBody = await res.text();
+          if (errorBody) {
+            // 尝试解析JSON
+            try {
+              const errorJson = JSON.parse(errorBody);
+              errorDetail = errorJson.error?.message || errorJson.message || errorBody.substring(0, 200);
+            } catch {
+              errorDetail = errorBody.substring(0, 200);
+            }
+          }
+        } catch {
+          // 忽略解析错误
+        }
+        if (errorDetail) {
+          return { success: false, message: `验证失败 (${res.status}): ${errorDetail}` };
+        }
+        return { success: false, message: `验证失败 (${res.status}): ${res.statusText}` };
+      }
       default:
         return { success: false, message: "未知服务商" };
     }
   } catch (e: any) {
     console.error(`Verification failed for ${provider}:`, e);
     if (e.message?.includes("Failed to fetch")) {
-      return { success: false, message: "网络错误: 请检查 Cloudflare Pages Functions 是否正确部署" };
+      return { success: false, message: "网络错误: 请检查网络连接和 API 地址" };
     }
     return { success: false, message: e.message || "未知错误" };
   }

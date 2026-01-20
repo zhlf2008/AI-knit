@@ -9,6 +9,8 @@ import {
   AlertCircle,
   X,
   Zap,
+  Wand,
+  Sparkles,
   History,
   Trash2,
   Copy,
@@ -20,6 +22,7 @@ import { Config, Resolution, GenerationState, ApiProvider, HistoryItem } from '.
 import { DEFAULT_CONFIG, STATIC_PROMPT_SUFFIX, RESOLUTIONS } from './constants';
 import ConfigModal from './components/ConfigModal';
 import { generateImage } from './services/generationService';
+import { enhancePromptWithModelScope } from './services/modelScopeService';
 
 const MAX_HISTORY_ITEMS = 100; // Limit history to prevent localStorage quota issues with base64
 
@@ -75,6 +78,7 @@ const App: React.FC = () => {
   const [prompt, setPrompt] = useState('');
   const [resolution, setResolution] = useState<Resolution>("1024x1024");
   const [seedInput, setSeedInput] = useState('42');
+  const [isOptimizing, setIsOptimizing] = useState(false);
   const [isRandomSeed, setIsRandomSeed] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -140,7 +144,12 @@ const App: React.FC = () => {
       }
     });
     const suffix = STATIC_PROMPT_SUFFIX ? "，" + STATIC_PROMPT_SUFFIX : "";
-    setPrompt(parts.join("，") + suffix);
+    let finalPrompt = parts.join("，") + suffix;
+    // 确保以中文标点结尾（句号、感叹号、问号）
+    if (!finalPrompt.endsWith('。') && !finalPrompt.endsWith('！') && !finalPrompt.endsWith('？')) {
+      finalPrompt += '。';
+    }
+    setPrompt(finalPrompt);
   }, [config.categories, selections]);
 
   useEffect(() => {
@@ -169,6 +178,41 @@ const App: React.FC = () => {
   };
 
 
+
+  const handleOptimizePrompt = async () => {
+    if (!prompt.trim()) {
+      setErrorMsg('请先输入提示词');
+      return;
+    }
+    
+    setIsOptimizing(true);
+    setErrorMsg(null);
+    
+    try {
+      const optimizedPrompt = await enhancePromptWithModelScope(prompt, config);
+      
+      // 检查是否返回了原始提示词（可能优化失败）
+      if (optimizedPrompt === prompt || optimizedPrompt.trim() === prompt.trim()) {
+        console.warn('提示词优化可能失败，返回了相同内容');
+        setErrorMsg('提示词优化完成，但内容变化不大。');
+      }
+      
+      setPrompt(optimizedPrompt);
+    } catch (error: any) {
+      console.error("Failed to optimize prompt:", error);
+      
+      // 提供更具体的错误信息
+      if (error.message && error.message.includes('API密钥未配置')) {
+        setErrorMsg('魔搭API密钥未配置。请在高级设置中配置Z-Image API Token。');
+      } else if (error.message && error.message.includes('网络')) {
+        setErrorMsg('网络连接失败，请检查网络后重试');
+      } else {
+        setErrorMsg('提示词优化失败：' + (error.message || '未知错误'));
+      }
+    } finally {
+      setIsOptimizing(false);
+    }
+  };
 
   const handleGenerate = async () => {
     // Cancel any ongoing generation
@@ -604,14 +648,30 @@ const App: React.FC = () => {
                    <span>提示词工程</span>
                    <span className="text-[10px] bg-brand-50 text-brand-300 px-2 py-0.5 rounded-full border border-brand-100">Step 3</span>
                  </h3>
-                 <span className="text-xs text-gray-400">{prompt.length} chars</span>
+                 <div className="flex items-center gap-3 mr-52">
+                    <span className="text-xs text-gray-400">{prompt.length} chars</span>
+                    <button 
+                      onClick={handleOptimizePrompt}
+                      disabled={isOptimizing || !prompt.trim()}
+                      className="text-xs font-medium text-purple-600 bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 border border-purple-100"
+                      title="使用魔搭API优化提示词"
+                    >
+                      {isOptimizing ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : (
+                        <Sparkles size={12} />
+                      )}
+                      <span>优化提示词</span>
+                    </button>
+                 </div>
               </div>
               <div className="flex-1 flex gap-4 h-full min-h-0">
-                <div className="relative flex-1 h-full">
+                <div className="relative flex-1 h-full flex flex-col">
+                  {/* 文本区域 */}
                   <textarea 
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
-                    className="w-full h-full bg-brand-50/50 border border-brand-200 rounded-xl p-4 text-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:bg-white resize-none text-base leading-relaxed"
+                    className="w-full flex-1 bg-brand-50/50 border border-brand-200 rounded-xl p-4 pr-4 text-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:bg-white resize-none text-base leading-relaxed"
                     placeholder="您的设计提示词将显示在这里..."
                   />
                 </div>

@@ -35,6 +35,7 @@ const Tooltip: React.FC<{ text: string; children: React.ReactNode }> = ({ text, 
 const ConfigModal: React.FC<ConfigModalProps> = ({ isOpen, onClose, config, onSave }) => {
   const [localConfig, setLocalConfig] = useState<Config>(JSON.parse(JSON.stringify(config)));
   const [activeTab, setActiveTab] = useState<'categories' | 'env'>('categories');
+  const [selectedConfigProvider, setSelectedConfigProvider] = useState<ApiProvider>('zimage');
   const [selectedCatIndex, setSelectedCatIndex] = useState<number>(0);
   const [newCatName, setNewCatName] = useState('');
   const [newItemName, setNewItemName] = useState('');
@@ -104,7 +105,8 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ isOpen, onClose, config, onSa
       setVerifyMsg(prev => ({ ...prev, [provider]: '' }));
       
       const endpoint = localConfig.endpoints[provider];
-      const result = await verifyConnection(provider, key, endpoint, localConfig.corsProxy);
+      const model = localConfig.models[provider];
+      const result = await verifyConnection(provider, key, endpoint, model, localConfig.corsProxy);
       
       setVerifying(prev => ({ ...prev, [provider]: result.success ? 'success' : 'error' }));
       if (!result.success && result.message) {
@@ -408,112 +410,251 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ isOpen, onClose, config, onSa
               </div>
             )}
 
-            {/* Tab: Environment - Simplified for Z-Image Only */}
+            {/* Tab: Environment - Multiple API Providers */}
             {activeTab === 'env' && (
                <div className="flex-1 flex flex-col bg-white overflow-hidden w-full">
                  <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
                    <div className="max-w-2xl mx-auto space-y-8">
-
-                     {/* Header Area */}
-                     <div className="flex items-start justify-between border-b border-brand-100 pb-6">
-                        <div className="flex gap-4">
-                           <div className={`p-3 rounded-xl shadow-sm ${verifyState === 'success' ? 'bg-green-50 text-green-600' : 'bg-brand-50 text-brand-600'}`}>
-                             {verifyState === 'verifying' ? <Loader2 className="animate-spin" size={32} /> : <Cpu size={32} />}
-                           </div>
-                           <div>
-                             <h3 className="font-bold text-xl text-brand-800">{providerMeta.label}</h3>
-                             <p className="text-sm text-brand-500 mt-1">{providerMeta.desc}</p>
-                           </div>
-                        </div>
-                        <a
-                          href={providerMeta.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-brand-600 hover:text-brand-800 flex items-center gap-1 bg-brand-50 px-3 py-1.5 rounded-full border border-brand-100 hover:bg-brand-100 transition-colors"
-                        >
-                          <Link size={12} /> 获取凭证
-                        </a>
+                     
+                     {/* Provider Selector */}
+                     <div className="flex gap-2 mb-6">
+                       <button
+                         onClick={() => setSelectedConfigProvider('zimage')}
+                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${selectedConfigProvider === 'zimage' ? 'bg-brand-500 text-white' : 'bg-brand-50 text-brand-600 hover:bg-brand-100'}`}
+                       >
+                         魔搭 ModelScope
+                       </button>
+                       <button
+                         onClick={() => setSelectedConfigProvider('openai')}
+                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${selectedConfigProvider === 'openai' ? 'bg-brand-500 text-white' : 'bg-brand-50 text-brand-600 hover:bg-brand-100'}`}
+                       >
+                         OpenAI 兼容 API
+                       </button>
                      </div>
 
-                     {/* Credentials */}
-                     <div className="space-y-4">
-                        <div className="flex justify-between items-center">
-                            <label className="text-sm font-semibold text-brand-700 flex items-center gap-2">
-                               <Key size={16} className="text-brand-400" /> API Key / Token
-                            </label>
-                            {verifyState === 'success' && <span className="text-xs text-green-600 flex items-center gap-1 bg-green-50 px-2 py-0.5 rounded"><CheckCircle size={10} /> 已连接</span>}
-                        </div>
+                     {/* Z-Image Configuration */}
+                     {selectedConfigProvider === 'zimage' && (
+                       <>
+                         <div className="flex items-start justify-between border-b border-brand-100 pb-6">
+                           <div className="flex gap-4">
+                             <div className={`p-3 rounded-xl shadow-sm ${verifying['zimage'] === 'success' ? 'bg-green-50 text-green-600' : 'bg-brand-50 text-brand-600'}`}>
+                               {verifying['zimage'] === 'verifying' ? <Loader2 className="animate-spin" size={32} /> : <Cpu size={32} />}
+                             </div>
+                             <div>
+                               <h3 className="font-bold text-xl text-brand-800">Z-Image-Turbo</h3>
+                               <p className="text-sm text-brand-500 mt-1">魔搭ModelScope (免费)</p>
+                             </div>
+                           </div>
+                           <a
+                             href="https://modelscope.cn/my/myaccesstoken"
+                             target="_blank"
+                             rel="noopener noreferrer"
+                             className="text-xs text-brand-600 hover:text-brand-800 flex items-center gap-1 bg-brand-50 px-3 py-1.5 rounded-full border border-brand-100 hover:bg-brand-100 transition-colors"
+                           >
+                             <Link size={12} /> 获取凭证
+                           </a>
+                         </div>
 
-                        <div className="flex flex-col gap-2">
-                          <div className="flex gap-2">
-                            <div className="relative flex-1 group">
-                               <input
-                                  type="password"
-                                  value={currentKey}
-                                  onChange={(e) => handleKeyChange(activeProviderId, e.target.value)}
-                                  placeholder={`请输入 ${activeProviderId} 的密钥...`}
-                                  className={`w-full pl-4 pr-10 py-3 rounded-lg border bg-white focus:outline-none focus:ring-2 focus:ring-offset-1 text-sm font-mono transition-all ${
-                                     verifyState === 'error'
+                         <div className="space-y-4">
+                           <div className="flex justify-between items-center">
+                             <label className="text-sm font-semibold text-brand-700 flex items-center gap-2">
+                               <Key size={16} className="text-brand-400" /> API Key / Token
+                             </label>
+                             {verifying['zimage'] === 'success' && <span className="text-xs text-green-600 flex items-center gap-1 bg-green-50 px-2 py-0.5 rounded"><CheckCircle size={10} /> 已连接</span>}
+                           </div>
+
+                           <div className="flex flex-col gap-2">
+                             <div className="flex gap-2">
+                               <div className="relative flex-1 group">
+                                 <input
+                                   type="password"
+                                   value={localConfig.keys?.zimage || ''}
+                                   onChange={(e) => handleKeyChange('zimage', e.target.value)}
+                                   placeholder="请输入 Z-Image API Token..."
+                                   className={`w-full pl-4 pr-10 py-3 rounded-lg border bg-white focus:outline-none focus:ring-2 focus:ring-offset-1 text-sm font-mono transition-all ${
+                                     verifying['zimage'] === 'error'
                                      ? 'border-red-300 focus:ring-red-200 bg-red-50/30'
-                                     : verifyState === 'success'
+                                     : verifying['zimage'] === 'success'
                                        ? 'border-green-300 focus:ring-green-200 bg-green-50/30'
                                        : 'border-brand-200 focus:ring-brand-400'
-                                  }`}
-                               />
-                            </div>
-                            <button
-                              onClick={() => handleVerify(activeProviderId)}
-                              disabled={!currentKey || verifyState === 'verifying'}
-                              className={`px-5 rounded-lg font-medium text-sm flex items-center gap-2 transition-all flex-shrink-0 shadow-sm active:scale-95 ${
-                                verifyState === 'success'
-                                ? 'bg-green-100 text-green-700 hover:bg-green-200 border border-green-200'
-                                : 'bg-gradient-to-br from-brand-400 to-brand-500 hover:from-brand-500 hover:to-brand-600 text-white disabled:opacity-50 disabled:cursor-not-allowed'
-                              }`}
-                            >
-                               {verifyState === 'verifying' ? <Loader2 className="animate-spin" size={16} /> : <Play size={16} />}
-                               测试
-                            </button>
-                          </div>
-
-                          {/* Error Message Display */}
-                          {verifyState === 'error' && verifyError && (
-                             <div className="flex items-start gap-2 text-xs text-red-600 bg-red-50 p-3 rounded-lg border border-red-100">
-                                <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
-                                <span className="leading-relaxed">{verifyError}</span>
+                                   }`}
+                                 />
+                               </div>
+                               <button
+                                 onClick={() => handleVerify('zimage')}
+                                 disabled={!localConfig.keys?.zimage || verifying['zimage'] === 'verifying'}
+                                 className={`px-5 rounded-lg font-medium text-sm flex items-center gap-2 transition-all flex-shrink-0 shadow-sm active:scale-95 ${
+                                   verifying['zimage'] === 'success'
+                                   ? 'bg-green-100 text-green-700 hover:bg-green-200 border border-green-200'
+                                   : 'bg-gradient-to-br from-brand-400 to-brand-500 hover:from-brand-500 hover:to-brand-600 text-white disabled:opacity-50 disabled:cursor-not-allowed'
+                                 }`}
+                               >
+                                 {verifying['zimage'] === 'verifying' ? <Loader2 className="animate-spin" size={16} /> : <Play size={16} />}
+                                 测试
+                               </button>
                              </div>
-                          )}
-                        </div>
-                     </div>
 
-                     {/* Z-Image Params */}
-                     {activeProviderId === 'zimage' && (
-                            <div className="bg-brand-50 rounded-xl p-5 border border-brand-100 space-y-4">
-                               <div className="flex items-center gap-2 text-brand-800">
-                                  <Settings2 size={18} />
-                                  <h4 className="font-bold text-sm">高级参数</h4>
+                             {/* Error Message Display */}
+                             {verifying['zimage'] === 'error' && verifyMsg['zimage'] && (
+                               <div className="flex items-start gap-2 text-xs text-red-600 bg-red-50 p-3 rounded-lg border border-red-100">
+                                 <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+                                 <span className="leading-relaxed">{verifyMsg['zimage']}</span>
                                </div>
-                               <div className="grid grid-cols-2 gap-4">
-                                  <div>
-                                     <label className="text-xs text-brand-500 mb-1 block">迭代步数 (Steps: {localConfig.steps || 8})</label>
-                                     <input
-                                      type="range" min="1" max="50"
-                                      value={localConfig.steps || 8}
-                                      onChange={(e) => handleStepsChange(parseInt(e.target.value))}
-                                      className="w-full h-1.5 bg-brand-200 rounded-lg appearance-none cursor-pointer accent-brand-500"
-                                     />
-                                  </div>
-                                  <div>
-                                     <label className="text-xs text-brand-500 mb-1 block">时间偏移 (Shift: {localConfig.timeShift || 3.0})</label>
-                                     <input
-                                      type="number" step="0.1"
-                                      value={localConfig.timeShift || 3.0}
-                                      onChange={(e) => handleTimeShiftChange(parseFloat(e.target.value))}
-                                      className="w-full px-2 py-1 rounded border border-brand-200 text-xs"
-                                     />
-                                  </div>
-                               </div>
-                            </div>
-                        )}
+                             )}
+                           </div>
+                         </div>
+
+                         {/* Z-Image Advanced Parameters */}
+                         <div className="bg-brand-50 rounded-xl p-5 border border-brand-100 space-y-4">
+                           <div className="flex items-center gap-2 text-brand-800">
+                             <Settings2 size={18} />
+                             <h4 className="font-bold text-sm">高级参数</h4>
+                           </div>
+                           <div className="grid grid-cols-2 gap-4">
+                             <div>
+                               <label className="text-xs text-brand-500 mb-1 block">迭代步数 (Steps: {localConfig.steps || 8})</label>
+                               <input
+                                 type="range" min="1" max="50"
+                                 value={localConfig.steps || 8}
+                                 onChange={(e) => handleStepsChange(parseInt(e.target.value))}
+                                 className="w-full h-1.5 bg-brand-200 rounded-lg appearance-none cursor-pointer accent-brand-500"
+                               />
+                             </div>
+                             <div>
+                               <label className="text-xs text-brand-500 mb-1 block">时间偏移 (Shift: {localConfig.timeShift || 3.0})</label>
+                               <input
+                                 type="number" step="0.1"
+                                 value={localConfig.timeShift || 3.0}
+                                 onChange={(e) => handleTimeShiftChange(parseFloat(e.target.value))}
+                                 className="w-full px-2 py-1 rounded border border-brand-200 text-xs"
+                               />
+                             </div>
+                           </div>
+                         </div>
+                       </>
+                     )}
+
+                     {/* OpenAI-Compatible API Configuration */}
+                     {selectedConfigProvider === 'openai' && (
+                       <>
+                         <div className="flex items-start justify-between border-b border-brand-100 pb-6">
+                           <div className="flex gap-4">
+                             <div className={`p-3 rounded-xl shadow-sm ${verifying['openai'] === 'success' ? 'bg-green-50 text-green-600' : 'bg-brand-50 text-brand-600'}`}>
+                               {verifying['openai'] === 'verifying' ? <Loader2 className="animate-spin" size={32} /> : <Cpu size={32} />}
+                             </div>
+                             <div>
+                               <h3 className="font-bold text-xl text-brand-800">OpenAI 兼容 API</h3>
+                               <p className="text-sm text-brand-500 mt-1">支持七牛、Gemini等兼容OpenAI接口的服务</p>
+                             </div>
+                           </div>
+                           <a
+                             href="https://sufy.com"
+                             target="_blank"
+                             rel="noopener noreferrer"
+                             className="text-xs text-brand-600 hover:text-brand-800 flex items-center gap-1 bg-brand-50 px-3 py-1.5 rounded-full border border-brand-100 hover:bg-brand-100 transition-colors"
+                           >
+                             <Link size={12} /> 服务介绍
+                           </a>
+                         </div>
+
+                         <div className="space-y-6">
+                           {/* API Key */}
+                           <div>
+                             <label className="text-sm font-semibold text-brand-700 flex items-center gap-2 mb-2">
+                               <Key size={16} className="text-brand-400" /> API Key
+                             </label>
+                             <input
+                               type="password"
+                               value={localConfig.keys?.openai || ''}
+                               onChange={(e) => handleKeyChange('openai', e.target.value)}
+                               placeholder="请输入 OpenAI 兼容 API 密钥..."
+                               className="w-full px-4 py-3 rounded-lg border border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-400 text-sm font-mono"
+                             />
+                           </div>
+
+                           {/* Base URL */}
+                           <div>
+                             <label className="text-sm font-semibold text-brand-700 flex items-center gap-2 mb-2">
+                               <Link size={16} className="text-brand-400" /> 接入地址
+                             </label>
+                             <input
+                               type="url"
+                               value={localConfig.endpoints?.openai || ''}
+                               onChange={(e) => {
+                                 const newConfig = {
+                                   ...localConfig,
+                                   endpoints: { ...localConfig.endpoints, openai: e.target.value }
+                                 };
+                                 setLocalConfig(newConfig);
+                                 handleAutoSave(newConfig);
+                               }}
+                               placeholder="https://openai.sufy.com/v1"
+                               className="w-full px-4 py-3 rounded-lg border border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-400 text-sm"
+                             />
+                             <p className="text-xs text-brand-400 mt-1">支持 OpenAI 兼容接口，例如七牛提供的 Gemini API 代理</p>
+                           </div>
+
+                           {/* Model ID */}
+                           <div>
+                             <label className="text-sm font-semibold text-brand-700 flex items-center gap-2 mb-2">
+                               <Cpu size={16} className="text-brand-400" /> 模型 ID
+                             </label>
+                             <input
+                               type="text"
+                               value={localConfig.models?.openai || ''}
+                               onChange={(e) => {
+                                 const newConfig = {
+                                   ...localConfig,
+                                   models: { ...localConfig.models, openai: e.target.value }
+                                 };
+                                 setLocalConfig(newConfig);
+                                 handleAutoSave(newConfig);
+                               }}
+                               placeholder="gemini-3.0-flash-preview"
+                               className="w-full px-4 py-3 rounded-lg border border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-400 text-sm"
+                             />
+                             <p className="text-xs text-brand-400 mt-1">填写实际使用的模型名称，如 gemini-3.0-flash-preview</p>
+                           </div>
+
+                           {/* Test Connection Button */}
+                           <div className="pt-4">
+                             <button
+                               onClick={() => handleVerify('openai')}
+                               disabled={!localConfig.keys?.openai || !localConfig.endpoints?.openai || !localConfig.models?.openai || verifying['openai'] === 'verifying'}
+                               className={`px-6 py-3 rounded-lg font-medium text-sm flex items-center gap-2 transition-all w-full justify-center shadow-sm active:scale-95 ${
+                                 verifying['openai'] === 'success'
+                                 ? 'bg-green-100 text-green-700 hover:bg-green-200 border border-green-200'
+                                 : 'bg-gradient-to-br from-brand-400 to-brand-500 hover:from-brand-500 hover:to-brand-600 text-white disabled:opacity-50 disabled:cursor-not-allowed'
+                               }`}
+                             >
+                               {verifying['openai'] === 'verifying' ? <Loader2 className="animate-spin" size={16} /> : <Play size={16} />}
+                               测试 OpenAI 兼容 API 连接
+                             </button>
+                           </div>
+
+                           {/* Error Message Display */}
+                           {verifying['openai'] === 'error' && verifyMsg['openai'] && (
+                             <div className="flex items-start gap-2 text-xs text-red-600 bg-red-50 p-3 rounded-lg border border-red-100">
+                               <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+                               <span className="leading-relaxed">{verifyMsg['openai']}</span>
+                             </div>
+                           )}
+
+                           {/* Example Configuration */}
+                           <div className="bg-blue-50 rounded-xl p-5 border border-blue-100">
+                             <div className="flex items-center gap-2 text-blue-800 mb-2">
+                               <Settings2 size={18} />
+                               <h4 className="font-bold text-sm">示例配置（七牛 Gemini）</h4>
+                             </div>
+                             <div className="text-sm text-blue-600 space-y-1">
+                               <p>• API Key: 您的七牛 API 密钥</p>
+                               <p>• 接入地址: <code className="bg-blue-100 px-1 rounded">https://openai.sufy.com/v1</code></p>
+                               <p>• 模型 ID: <code className="bg-blue-100 px-1 rounded">gemini-3.0-flash-preview</code></p>
+                             </div>
+                           </div>
+                         </div>
+                       </>
+                     )}
 
                    </div>
                  </div>
@@ -526,7 +667,11 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ isOpen, onClose, config, onSa
         {/* Footer */}
         <div className="px-6 py-4 border-t border-brand-100 bg-brand-50 flex justify-between items-center">
           <div className="text-xs text-brand-400">
-             {activeTab === 'env' && verifyState === 'success' && <span className="text-green-600 flex items-center gap-1"><CheckCircle size={12}/> 配置有效</span>}
+             {activeTab === 'env' && verifying[selectedConfigProvider] === 'success' && (
+               <span className="text-green-600 flex items-center gap-1">
+                 <CheckCircle size={12}/> {selectedConfigProvider === 'openai' ? 'OpenAI API 已连接' : '魔搭API 已连接'}
+               </span>
+             )}
           </div>
           <div className={`text-xs flex items-center gap-1 transition-colors ${saveIndicator ? 'text-green-600' : 'text-brand-300'}`}>
             {saveIndicator && <CheckCircle size={12} className="animate-in zoom-in duration-200" />}
