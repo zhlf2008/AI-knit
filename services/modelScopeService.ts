@@ -431,6 +431,11 @@ class SweaterDesignPromptOptimizer {
     // 重构提示词结构
     let sentences = optimized.split(/[，。]/).map(s => s.trim()).filter(s => s.length > 0);
     
+    // 确保至少有一个句子
+    if (sentences.length === 0) {
+      sentences = [optimized];
+    }
+    
     // 如果提示词太简单，添加基础增强（检查重复）
     if (sentences.length < 2) {
       const basicEnhancements = [
@@ -490,12 +495,23 @@ class SweaterDesignPromptOptimizer {
     optimized = this.cleanPunctuation(reconstructed);
     optimized = this.removeDuplicateKeywords(optimized);
     
-    // 确保长度适中（60-120字）
-    if (optimized.length > 120) {
+    // 确保提示词完整性 - 移除过长的截断逻辑，改为智能截断
+    // 如果提示词过长（>150字），尝试截断但保持完整性
+    if (optimized.length > 150) {
       const parts = optimized.split('，');
-      if (parts.length > 4) {
-        optimized = parts.slice(0, 4).join('，') + '。';
+      if (parts.length > 5) {
+        // 取前5个部分，确保以句号结尾
+        optimized = parts.slice(0, 5).join('，');
+        if (!optimized.endsWith('。')) {
+          optimized += '。';
+        }
       }
+    }
+    
+    // 最终验证：确保提示词不为空且长度合理
+    if (!optimized || optimized.trim().length === 0) {
+      console.warn('优化后提示词为空，返回清理后的原始提示词');
+      optimized = this.cleanPunctuation(basePrompt);
     }
     
     console.log('优化后的提示词:', optimized);
@@ -609,7 +625,27 @@ export const enhancePromptWithModelScope = async (
     try {
       const optimized = await enhancePromptWithOpenAI(basePrompt, openaiApiKey, openaiEndpoint, openaiModel);
       console.log('OpenAI优化后的提示词:', optimized);
-      return optimized;
+      
+      // 检查优化后的文本质量
+      // 1. 确保优化后的文本不为空
+      if (!optimized || optimized.trim().length === 0) {
+        console.warn('OpenAI优化返回空内容，回退到本地优化器');
+        // 继续使用本地优化器
+      }
+      // 2. 确保优化后的文本比原始文本更长（至少增加20%）
+      else if (optimized.length < basePrompt.length * 1.2) {
+        console.warn('OpenAI优化结果长度不足，回退到本地优化器');
+        // 继续使用本地优化器
+      }
+      // 3. 确保以句号结尾
+      else if (!optimized.endsWith('。') && !optimized.endsWith('！') && !optimized.endsWith('？')) {
+        console.warn('OpenAI优化结果没有以标点结尾，回退到本地优化器');
+        // 继续使用本地优化器
+      }
+      else {
+        // 质量检查通过
+        return optimized;
+      }
     } catch (error) {
       console.warn('OpenAI API优化失败，回退到本地优化器:', error);
       // 继续使用本地优化器

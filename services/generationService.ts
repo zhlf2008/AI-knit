@@ -15,8 +15,34 @@ const getApiKey = (config: Config, providerOverride?: ApiProvider) => {
 
 // --- Verification Logic ---
 
+// 检查字符串是否只包含ISO-8859-1 (Latin-1) 字符
+const isLatin1 = (str: string): boolean => {
+  // ISO-8859-1范围：\u0000-\u00FF
+  return /^[\u0000-\u00FF]*$/.test(str);
+};
+
 export const verifyConnection = async (provider: ApiProvider, key: string, endpoint?: string, model?: string, proxy?: string): Promise<{ success: boolean; message?: string }> => {
   if (!key) return { success: false, message: "请输入 API 密钥" };
+  
+  // 检查API密钥是否只包含ISO-8859-1字符
+  if (!isLatin1(key)) {
+    return { success: false, message: "API 密钥包含非ISO-8859-1字符，请确保只使用英文字母、数字和符号" };
+  }
+  
+  // 检查接入地址是否只包含ISO-8859-1字符
+  if (endpoint && !isLatin1(endpoint)) {
+    return { success: false, message: "API 接入地址包含非ISO-8859-1字符，请使用标准URL格式" };
+  }
+  
+  // 检查模型ID是否只包含ISO-8859-1字符
+  if (model && !isLatin1(model)) {
+    return { success: false, message: "模型 ID 包含非ISO-8859-1字符，请使用英文模型名称" };
+  }
+  
+  // 检查代理地址是否只包含ISO-8859-1字符
+  if (proxy && !isLatin1(proxy)) {
+    return { success: false, message: "代理地址包含非ISO-8859-1字符，请使用标准URL格式" };
+  }
 
   try {
     switch (provider) {
